@@ -103,7 +103,7 @@
         const blob = new Blob([output], { type: 'text/plain' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'FORMATTED_' + file.name.replace('.tsv', '.txt');
+        link.download = '(formatted)_' + file.name.replace('.tsv', '.txt');
         link.click();
       };
 
