@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TSV to Crossword TXT</title>
+</head>
+<body>
+  <h1>Upload a TSV file</h1>
+  <input type="file" id="fileInput" accept=".tsv" />
+
+  <script>
+    function convertToCurly(text) {
+      return text
+        .replace(/\b"/g, '”')
+        .replace(/"\b/g, '“')
+        .replace(/\b'/g, '’')
+        .replace(/'\b/g, '‘')
+        .replace(/([^\w\d\s:])"/g, '$1”')
+        .replace(/([^\w\d\s:])'/g, '$1’')
+        .replace(/\S'\S/g, '’');
+    }
+
+    function padToMaxLength(clues, maxLength) {
+      const tabSize = 7;
+      return clues.map(clue => {
+        const neededTabs = Math.floor((maxLength - clue.length) / tabSize);
+        return clue + '\t'.repeat(neededTabs);
+      });
+    }
+
+    document.getElementById('fileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.trim().split('\n');
+        const rows = lines.slice(1).map(line => line.split('\t'));
+
+        const allClues = [];
+        for (const row of rows) {
+          if (row.length >= 4) row.splice(3, 1); // remove notes
+          if (row.length >= 3) {
+            const tmp = row[1];
+            row[1] = convertToCurly(row[2]); // clue (converted)
+            row[2] = tmp; // answer
+            allClues.push(row[1]);
+          }
+        }
+
+        const maxLength = Math.max(...allClues.map(c => c.length));
+        const paddedClues = padToMaxLength(allClues, maxLength);
+
+        let clueIndex = 0;
+        let output = '';
+        let acrossWritten = false;
+        let downWritten = false;
+
+        // Redo parsing for formatted clues + answers
+        const rows2 = lines.slice(1).map(line => line.split('\t'));
+        for (let row of rows2) {
+          if (row.length >= 3) {
+            const tmp = row[1];
+            row[1] = paddedClues[clueIndex]; // padded clue
+            row[2] = tmp.toUpperCase(); // uppercase answer
+            clueIndex++;
+          }
+
+          if (row[0].includes('A') && !acrossWritten) {
+            output += 'Across\n';
+            acrossWritten = true;
+          }
+          if (row[0].includes('D') && !downWritten) {
+            output += '\nDown\n';
+            downWritten = true;
+          }
+
+          row[0] = row[0].replace(/\D/g, '');
+          output += row.join('\t').replace(/\t+$/, '') + '\n';
+        }
+
+        output += '\n\n';
+
+        // Reprint clues only
+        acrossWritten = false;
+        downWritten = false;
+
+        for (let row of rows2) {
+          if (row.length >= 3) row.splice(1, 1); // remove answer
+          if (row.length >= 2) {
+            row[1] = convertToCurly(row[1]).replace(/\t+$/, '');
+          }
+
+          if (row[0].includes('A') && !acrossWritten) {
+            output += 'Across\n';
+            acrossWritten = true;
+          }
+          if (row[0].includes('D') && !downWritten) {
+            output += '\nDown\n';
+            downWritten = true;
+          }
+
+          row[0] = row[0].replace(/\D/g, '');
+          output += row.join('\t').replace(/\t+$/, '') + '\n';
+        }
+
+        const blob = new Blob([output], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'FORMATTED_' + file.name.replace('.tsv', '.txt');
+        link.click();
+      };
+
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
