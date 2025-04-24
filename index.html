@@ -30,16 +30,20 @@
     }
 
     function convertToCurly(text) {
-      // Handle apostrophes (don't → don’t)
-      text = text.replace(/(\w)'(\w)/g, '$1’$2');
-      // Alternate double quotes (smart open/close)
-      let isDoubleOpen = true;
-      text = text.replace(/"/g, () => (isDoubleOpen = !isDoubleOpen) ? '“' : '”');
-      // Alternate single quotes (rare, but for completeness)
-      let isSingleOpen = true;
-      text = text.replace(/'/g, () => (isSingleOpen = !isSingleOpen) ? '‘' : '’');
-      return text;
+        // Handle apostrophes like don't → don’t
+        text = text.replace(/(\w)'(\w)/g, '$1’$2');
+
+        // Correct smart double quotes: “ is opening, ” is closing
+        let isDoubleOpen = true;
+        text = text.replace(/"/g, () => (isDoubleOpen = !isDoubleOpen) ? '”' : '“');
+
+        // Correct smart single quotes: ‘ is opening, ’ is closing
+        let isSingleOpen = true;
+        text = text.replace(/'/g, () => (isSingleOpen = !isSingleOpen) ? '’' : '‘');
+
+        return text;
     }
+
 
     function padToMaxLength(clues, maxLength) {
       const tabSize = 7;
