@@ -11,19 +11,39 @@
   <script>
     // Mimics Python's csv.reader quote handling
     function parseTSV(tsvText) {
-      return tsvText.trim().split('\n').map(line => {
-        const regex = /"(.*?)"|([^\t]+)/g;
-        const fields = [];
-        let match;
-        while ((match = regex.exec(line)) !== null) {
-          let field = match[1] !== undefined ? match[1] : match[2];
-          // Unescape double quotes
-          field = field.replace(/""/g, '"');
-          fields.push(field);
+        const rows = [];
+        const lines = tsvText.trim().split(/\r?\n/);
+
+        for (let line of lines) {
+            const fields = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                current += '"';
+                i++; // Skip next quote
+                } else {
+                inQuotes = !inQuotes;
+                }
+            } else if (char === '\t' && !inQuotes) {
+                fields.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+            }
+
+            fields.push(current);
+            rows.push(fields);
         }
-        return fields;
-      });
-    }
+
+        return rows;
+        }
 
     function convertToCurly(text) {
       // Handle apostrophes like don't
