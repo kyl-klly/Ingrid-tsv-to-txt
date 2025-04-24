@@ -5,22 +5,35 @@
   <title>TSV to Crossword TXT</title>
 </head>
 <body>
-  <h1>Upload the TSV file (from Ingrid)</h1>
+  <h1>Upload TSV file (from Ingrid)</h1>
   <input type="file" id="fileInput" accept=".tsv" />
 
   <script>
-    function convertToCurly(text) {
-      // First replace apostrophes inside words (like don't, you're)
-      text = text.replace(/(\w)'(\w)/g, '$1’$2');
+    // Mimics Python's csv.reader quote handling
+    function parseTSV(tsvText) {
+      return tsvText.trim().split('\n').map(line => {
+        const regex = /"(.*?)"|([^\t]+)/g;
+        const fields = [];
+        let match;
+        while ((match = regex.exec(line)) !== null) {
+          let field = match[1] !== undefined ? match[1] : match[2];
+          // Unescape double quotes
+          field = field.replace(/""/g, '"');
+          fields.push(field);
+        }
+        return fields;
+      });
+    }
 
-      // Replace opening and closing double quotes
+    function convertToCurly(text) {
+      // Handle apostrophes like don't
+      text = text.replace(/(\w)'(\w)/g, '$1’$2');
+      // Handle double quotes as pairs
       let isDoubleOpen = true;
       text = text.replace(/"/g, () => (isDoubleOpen = !isDoubleOpen) ? '“' : '”');
-
-      // Replace opening and closing single quotes
+      // Handle single quotes as pairs
       let isSingleOpen = true;
       text = text.replace(/'/g, () => (isSingleOpen = !isSingleOpen) ? '‘' : '’');
-
       return text;
     }
 
@@ -37,16 +50,11 @@
       const reader = new FileReader();
 
       reader.onload = function(e) {
-        const text = e.target.result;
-        const lines = text.trim().split('\n');
-        const originalRows = lines.slice(1).map(line => line.split('\t'));
+        const lines = e.target.result;
+        const allRows = parseTSV(lines);
+        const rows = allRows.slice(1); // Skip header
 
-        // First pass: collect all clues with smart quotes
-        const clues = originalRows.map(row => {
-          if (row.length >= 4) row.splice(3, 1); // remove notes
-          return convertToCurly(row[2] || '');
-        });
-
+        const clues = rows.map(row => convertToCurly(row[2] || ''));
         const maxLength = Math.max(...clues.map(c => c.length));
         const paddedClues = padToMaxLength(clues, maxLength);
 
@@ -55,8 +63,8 @@
         let acrossWritten = false;
         let downWritten = false;
 
-        // First block: Number, padded clue, answer
-        for (const row of originalRows) {
+        // Section 1: Number + padded clue + uppercase answer
+        for (const row of rows) {
           if (row.length >= 4) row.splice(3, 1);
           const clue = paddedClues[clueIndex];
           const answer = (row[1] || '').toUpperCase();
@@ -78,10 +86,12 @@
 
         output += '\n\n';
 
-        // Second block: Number + unpadded clue
+        // Section 2: Number + clue only (fresh re-parse for clean clues)
         acrossWritten = false;
         downWritten = false;
-        for (const row of originalRows) {
+        clueIndex = 0;
+
+        for (const row of rows) {
           if (row.length >= 4) row.splice(3, 1);
           const clue = convertToCurly(row[2] || '').replace(/\t+$/, '');
           const number = row[0].replace(/\D/g, '');
@@ -97,9 +107,9 @@
           }
 
           output += `${number}\t${clue}\n`;
+          clueIndex++;
         }
 
-        // Download result
         const blob = new Blob([output], { type: 'text/plain' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
